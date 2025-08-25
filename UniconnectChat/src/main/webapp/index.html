@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>UniConnect Chat</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+    <header>
+        <h1>Welcome, <span id="username-display">Guest</span></h1>
+        <nav>
+            <a href="ConversationsServlet">Conversations</a>
+            <a href="login.html">Login</a>
+        </nav>
+    </header>
+    
+    <main>
+        <section id="user-dashboard">
+            <h2>Dashboard</h2>
+            <p>Please login to continue.</p>
+        </section>
+    </main>
+
+    <script>
+        // Load username
+        const params = new URLSearchParams(window.location.search);
+        const username = params.get("username");
+
+        if (username) {
+            document.getElementById("username-display").textContent = username;
+        } else {
+            document.getElementById("username-display").textContent = "Guest";
+        }
+    </script>
+</body>
+</html>
+

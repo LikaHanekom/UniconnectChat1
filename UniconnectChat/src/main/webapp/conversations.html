@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Conversations</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+   <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+    <header>
+        <h1>Conversations</h1>
+        <nav>
+            <a href="HomeServlet">Home</a>
+        </nav>
+    </header>
+    
+    <main>
+        <div id="conversation-list">
+            <div class="conversation-header">
+                <h2>Your Conversations</h2>
+            </div>
+            <div id="conversations-container"></div>
+        </div>
+        <button id="new-conversation">Start New Conversation</button>
+    </main>
+
+    <script>
+        
+        const params = new URLSearchParams(window.location.search);
+        const conversationsJson = params.get("conversations");
+
+        let conversations = [];
+        try {
+            conversations = conversationsJson ? JSON.parse(decodeURIComponent(conversationsJson)) : [];
+        } catch (e) {
+            console.error("Failed to parse conversations JSON", e);
+        }
+
+        const container = document.getElementById("conversations-container");
+        if (conversations.length === 0) {
+            container.innerHTML = "<p style='padding:1rem;'>No conversations yet.</p>";
+        } else {
+            conversations.forEach(conv => {
+                const item = document.createElement("div");
+                item.className = "conversation-item";
+                item.innerHTML = `
+                    <div class="conversation-info">
+                        <span class="conversation-name">${conv.name}</span>
+                    </div>
+                `;
+                item.addEventListener("click", () => {
+                    
+                    window.location.href = "ChatServlet?conversationId=" + conv.id + "&username=" + (params.get("username") || "Guest");
+                });
+                container.appendChild(item);
+            });
+        }
+
+        
+        document.getElementById('new-conversation').addEventListener('click', () => {
+            const recipient = prompt("Enter username to start conversation with:");
+            if (recipient && recipient.trim() !== '') {
+                alert("Starting conversation with " + recipient);
+                
+            }
+        });
+    </script>
+</body>
+</html>

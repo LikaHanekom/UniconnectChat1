@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Chat Room</title>
+    <link rel="stylesheet" href="style.css?v=2">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body>
+    <header>
+        <h1>Chat Room</h1>
+        <nav>
+            <a id="back-conversations" href="#">Back to Conversations</a>
+            <a id="home" href="#">Home</a>
+        </nav>
+    </header>
+    
+    <main>
+        <div id="chat-window"></div>
+        <div class="message-input">
+            <input type="text" id="message" placeholder="Type your message..." autocomplete="off">
+            <button id="camera-button" class="camera-icon" title="Take Photo"></button>
+            <button id="send-button">Send</button>
+        </div>
+    </main>
+
+    <div class="camera-modal" id="camera-modal">
+        <div class="camera-content">
+            <h2>Take a Photo</h2>
+            <video id="video" class="camera-preview" autoplay></video>
+            <canvas id="canvas" style="display: none;"></canvas>
+            <div class="camera-controls">
+                <button id="capture-btn">Capture Photo</button>
+                <button id="cancel-camera">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const username = params.get('username') || 'Guest';
+        const conversationId = params.get('conversationId') || 'default';
+
+        document.getElementById('back-conversations').href = "ConversationsServlet";
+        document.getElementById('home').href = "HomeServlet";
+
+        const chatWindow = document.getElementById('chat-window');
+        const messageInput = document.getElementById('message');
+        let ws = null;
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            const context = window.location.pathname.split('/')[1];
+            const wsUrl = `${protocol}//${host}/${context}/chat-app/chat/${conversationId}`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => console.log("Connected to chat server");
+            ws.onclose = () => setTimeout(connectWebSocket, 1000);
+            ws.onerror = (err) => console.error("WS error:", err);
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    const now = new Date();
+                    const timeString = now.getHours() + ':' + (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
+                    const messageElement = document.createElement('div');
+                    messageElement.className = 'message received';
+
+                    if (data.type === 'text') {
+                        messageElement.innerHTML = `
+                            <div class="message-sender">${data.sender}</div>
+                            <div class="message-text">${data.message}</div>
+                            <div class="message-time">${timeString}</div>
+                        `;
+                    } else if (data.type === 'image') {
+                        messageElement.innerHTML = `
+                            <div class="message-sender">${data.sender}</div>
+                            <div class="message-text">
+                                <div>Photo</div>
+                                <img src="${data.data}" class="message-image" alt="Received photo">
+                            </div>
+                            <div class="message-time">${timeString}</div>
+                        `;
+                    }
+
+                    chatWindow.appendChild(messageElement);
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                } catch (e) {
+                    console.error("Message parse error:", e);
+                }
+            };
+        }
+
+        connectWebSocket();
+
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+            const now = new Date();
+            const timeString = now.getHours() + ':' + (now.getMinutes() < 10 ? '0' : '') + now.getMinutes();
+
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message sent';
+            messageElement.innerHTML = `<div class="message-text">${text}</div><div class="message-time">${timeString}</div>`;
+            chatWindow.appendChild(messageElement);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            ws.send(JSON.stringify({ type: "text", sender: username, message: text, conversationId }));
+            messageInput.value = '';
+        }
+
+        document.getElementById('send-button').addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => { if(e.key==='Enter') sendMessage(); });
+
+        // Camera functionality (unchanged)
+        const cameraModal = document.getElementById('camera-modal');
+        const cameraButton = document.getElementById('camera-button');
+        const cancelCameraButton = document.getElementById('cancel-camera');
+        const captureButton = document.getElementById('capture-btn');
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let stream = null;
+
+        cameraButton.addEventListener('click', () => { cameraModal.style.display = 'flex'; startCamera(); });
+        cancelCameraButton.addEventListener('click', () => { stopCamera(); cameraModal.style.display = 'none'; });
+        captureButton.addEventListener('click', capturePhoto);
+
+        async function startCamera() {
+            try { stream = await navigator.mediaDevices.getUserMedia({ video: { width:640, height:480 }, audio:false }); video.srcObject = stream; }
+            catch (err) { alert('Cannot access camera'); console.error(err); }
+        }
+        function stopCamera() { if(stream) stream.getTracks().forEach(track => track.stop()); }
+        function capturePhoto() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const capturedImage = canvas.toDataURL('image/png');
+            stopCamera();
+            cameraModal.style.display = 'none';
+            sendImageMessage(capturedImage);
+        }
+        function sendImageMessage(imageData) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            const now = new Date();
+            const timeString = now.getHours() + ':' + (now.getMinutes()<10?'0':'') + now.getMinutes();
+            const messageElement = document.createElement('div');
+            messageElement.className = 'message sent';
+            messageElement.innerHTML = `<div class="message-text"><div>Photo</div><img src="${imageData}" class="message-image" alt="Sent photo"></div><div class="message-time">${timeString}</div>`;
+            chatWindow.appendChild(messageElement);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+            ws.send(JSON.stringify({ type: "image", data: imageData, sender: username, conversationId }));
+        }
+
+        window.addEventListener('beforeunload', () => { if(stream) stream.getTracks().forEach(track => track.stop()); if(ws) ws.close(); });
+    </script>
+</body>
+</html>
