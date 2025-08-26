@@ -1,0 +1,74 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Camera</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <<link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+    <header>
+        <h1>Camera</h1>
+        <nav>
+            <a href="${pageContext.request.contextPath}/HomeServlet">Home</a>
+            <a href="${pageContext.request.contextPath}/chat.html">Chat</a>
+        </nav>
+    </header>
+    
+    <main>
+        <video id="video" width="640" height="480" autoplay></video>
+        <div class="controls">
+            <button id="snap">Capture</button>
+            <button id="save">Save Photo</button>
+        </div>
+        <canvas id="canvas" width="640" height="480"></canvas>
+    </main>
+
+    <script>
+        // Enhanced camera script with error handling
+        document.addEventListener('DOMContentLoaded', () => {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            let stream = null;
+
+            // Start camera
+            async function startCamera() {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { width: 640, height: 480 },
+                        audio: false
+                    });
+                    video.srcObject = stream;
+                } catch (err) {
+                    console.error('Camera error:', err);
+                    alert('Could not access camera. Please check permissions.');
+                }
+            }
+
+            // Capture photo
+            document.getElementById('snap').addEventListener('click', () => {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            });
+
+            // Save photo
+            document.getElementById('save').addEventListener('click', () => {
+                const imageData = canvas.toDataURL('image/png');
+                // Send to server or download
+                console.log('Image captured:', imageData);
+            });
+
+            // Initialize camera
+            startCamera();
+
+            // Clean up on exit
+            window.addEventListener('beforeunload', () => {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+            });
+        });
+    </script>
+</body>
+</html>
